@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import matplotlib.pyplot as plt
-from function import LR
+from function import LR, LR_L1, bp
 
 # %% 显示中文
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -28,8 +28,11 @@ data_y = data.iloc[:, 12].values.reshape(-1, 1)
 
 
 # %% 线性回归
-beta_h, y_h, resi, p_val = LR(data_x, data_y)
+beta_h1, y_h1, p_val1 = LR(data_x, data_y, lamda=0)  # 线性回归（无正则化）
 
+beta_h2, y_h2, p_val2 = LR(data_x, data_y, lamda=0.5)  # 线性回归（L2正则化）
 
+beta_h3, y_h3 = LR_L1(data_x, data_y, epochs=5000, alpha=0.07, lamda=0.01)  # 线性回归（L1正则化）
 
+y_hat4 = bp(data_x, data_y, epochs=2000, alpha=0.5, lamda=0.01)  # bp神经网络
 
