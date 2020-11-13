@@ -83,7 +83,6 @@ def LR_L1(x, y, epochs, alpha, lamda):
         delta[1:n, :] = 1/m * np.matmul(x.T[1:n, :], h-y) + lamda*np.sign(theta[1:n, :])
         # 参数更新
         theta = theta - alpha * delta
-        if
         # 记录误差cost
         cost_history['epoch'].append(epoch)
         cost_history['cost'].append(J)
