@@ -12,6 +12,24 @@ import cap
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
+# 残差图
+def resi_plot(m, resi):
+
+    plt.figure()
+    plt.scatter(range(m), resi, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
+    plt.plot(range(m), resi, '--k', alpha=0.6)
+    plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
+    plt.xlabel('样本')
+    plt.ylabel('残差值')
+    plt.xlim(-5, 105)
+    plt.ylim(-3.5, 3.5)
+    plt.show()
+
+# 残差平方和
+def resi_sum(resi):
+    res = sum(resi**2)
+    print('残差平方和：%.4f' % res)
+
 # 多元线性回归：无正则化 + L2正则化
 def LR(x, y, lamda=0):
     """
@@ -41,23 +59,10 @@ def LR(x, y, lamda=0):
     Tn = beta_hat / np.sqrt(sigma_square * gamma)        # t检验统计量
     p_value = (1 - stats.t.cdf(np.abs(Tn), m-n-1)) / 2   # t检验的p—value
 
-    # 残差图
-    plt.figure()
-    plt.scatter(range(m), residual, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
-    plt.plot(range(m), residual, '--k', alpha=0.6)
-    plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
-    plt.xlabel('样本')
-    plt.ylabel('残差值')
-    plt.xlim(-5, 105)
-    plt.ylim(-3.5, 3.5)
-    plt.show()
-
-    # 残差平方和
-    resi_sum = sum(residual**2)
-    print('残差平方和：%.4f' % resi_sum)
+    resi_plot(m, residual)  # 残差图
+    resi_sum(residual)  # 残差平方和
 
     return beta_hat, y_hat, p_value
-
 
 # 多元线性回归：L1正则化
 def LR_L1(x, y, epochs, alpha, lamda):
@@ -71,46 +76,32 @@ def LR_L1(x, y, epochs, alpha, lamda):
     for epoch in range(epochs):
         # 假设函数h(θ)
         h = np.matmul(x, theta)
-        # 均方误差损失 + 正则化项
+        # 均方误差损失 + L1正则化项
         J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n, :], 1)
-        # 计算梯度
+        # 坐标下降法！！！（梯度下降法不再适用！）
         delta[0, :] = 1/m * np.matmul(x.T[0, :], h-y)  # theta0不加正则化
         delta[1:n, :] = 1/m * np.matmul(x.T[1:n, :], h-y) + lamda*np.sign(theta[1:n, :])
         # 参数更新
         theta = theta - alpha * delta
+        if
         # 记录误差cost
         cost_history['epoch'].append(epoch)
         cost_history['cost'].append(J)
-    # 可视化误差曲线
-    plt.plot(cost_history['epoch'], cost_history['cost'])
-    plt.show()
 
     beta_hat = theta  # 参数估计值
     y_hat = np.matmul(x, beta_hat)  # y的估计值
     residual = y_hat - y  # 残差
 
-    # 残差图
-    plt.figure()
-    plt.scatter(range(m), residual, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
-    plt.plot(range(m), residual, '--k', alpha=0.6)
-    plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
-    plt.xlabel('样本')
-    plt.ylabel('残差值')
-    plt.xlim(-5, 105)
-    plt.ylim(-3.5, 3.5)
-    plt.show()
-
-    # 残差平方和
-    resi_sum = sum(residual**2)
-    print('残差平方和：%.4f' % resi_sum)
+    resi_plot(m, residual)  # 残差图
+    resi_sum(residual)  # 残差平方和
 
     return theta, y_hat
 
 # bp神经网络
-def bp(x, y, epochs=2000, alpha=0.5, lamda=0):
+def bp(x, y, epochs, alpha, lamda):
     # 超参数
     train_num = x.shape[0]  # 样本数
-    input_num = 11  # 输入节点数
+    input_num = x.shape[1]  # 输入节点数
     hidden_num = 8  # 隐层节点数
     output_num = 1  # 输出节点数
 
@@ -124,9 +115,9 @@ def bp(x, y, epochs=2000, alpha=0.5, lamda=0):
     cost = []
     for epoch in range(epochs):
         # 前向传播
-        hidden_in = np.matmul(x, w1) + b1
+        hidden_in = np.dot(x, w1) + b1
         hidden_out = cap.sigmoid(hidden_in)
-        network_in = np.matmul(hidden_out, w2) + b2
+        network_in = np.dot(hidden_out, w2) + b2
         network_out = network_in
 
         # 记录总误差
@@ -135,40 +126,25 @@ def bp(x, y, epochs=2000, alpha=0.5, lamda=0):
         # 反向传播
         output_delta = network_out - y
 
-        hidden_delta = np.multiply(np.matmul(output_delta, w2.T),
+        hidden_delta = np.multiply(np.dot(output_delta, w2.T),
                                    np.multiply(hidden_out, 1-hidden_out))
         # 梯度更新
-        dw2 = 1/train_num * (np.matmul(hidden_out.T, output_delta) + lamda*w2)
-        db2 = 1/train_num * np.matmul(np.ones([train_num, 1]).T, output_delta)
-        dw1 = 1/train_num * (np.matmul(x.T, hidden_delta) + lamda*w1)
-        db1 = 1/train_num * np.matmul(np.ones([train_num, 1]).T, hidden_delta)
+        dw2 = 1/train_num * (np.dot(hidden_out.T, output_delta) + lamda*w2)
+        db2 = 1/train_num * np.dot(np.ones([train_num, 1]).T, output_delta)
+        dw1 = 1/train_num * (np.dot(x.T, hidden_delta) + lamda*w1)
+        db1 = 1/train_num * np.dot(np.ones([train_num, 1]).T, hidden_delta)
         w2 = w2 - alpha*dw2
         w1 = w1 - alpha*dw1
         b2 = b2 - alpha*db2
         b1 = b1 - alpha*db1
-    # 可视化cost曲线
-    plt.plot(range(epochs), cost)
-    plt.show()
 
     y_hat = network_out  # y的估计值
     residual = output_delta  # 残差
 
-    # 残差图
-    plt.figure()
-    plt.scatter(range(x.shape[0]), residual, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
-    plt.plot(range(x.shape[0]), residual, '--k', alpha=0.6)
-    plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
-    plt.xlabel('样本')
-    plt.ylabel('残差值')
-    plt.xlim(-5, 105)
-    plt.ylim(-3.5, 3.5)
-    plt.show()
+    resi_plot(x.shape[0], residual)  # 残差图
+    resi_sum(residual)  # 残差平方和
 
-    # 残差平方和
-    resi_sum = sum(residual**2)
-    print('残差平方和：%.4f' % resi_sum)
-
-    return y_hat
+    return y_hat, w1, b1
 
 
 
