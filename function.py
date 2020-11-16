@@ -1,6 +1,12 @@
 """
 function.py
 
+调试记录：
+1. LASSO回归，参数怎么才会变为0? 按照坐标下降法，参数不太可能会自动训练为0啊?
+”在变量的变化程度很小时“，将该维度参数设为0，我用pk作为判断依据，当pk位于（-λ，λ）中时，
+表示变化程度“很小”，那么此时将参数设为0。实际调试发现，pk这个数太大了，都是几千几百，不
+可能小到设置的阈值范围中，所以该方法不可行！
+
 """
 import numpy as np
 import pandas as pd
@@ -13,72 +19,45 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 残差图
-def resi_plot(m, resi):
-
+def resi_plot(m, resi, reg):
+    if reg == 'None回归':
+        reg = '不加正则化'
     plt.figure()
     plt.scatter(range(m), resi, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
     plt.plot(range(m), resi, '--k', alpha=0.6)
     plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
     plt.xlabel('样本')
     plt.ylabel('残差值')
+    plt.title('%s 残差图' % reg)
     plt.xlim(-5, 105)
     plt.ylim(-3.5, 3.5)
     plt.show()
 
 # 残差平方和
-def resi_sum(resi):
+def resi_sum(resi, reg):
     res = sum(resi**2)
-    print('残差平方和：%.4f' % res)
+    if reg == 'None回归':
+        reg = '不加正则化'
+    print('%s，残差平方和(RSS)：%.4f' % (reg, res))
 
 # 多元线性回归
-def LR(x, y, reg='None', lamda=0):
+def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
     """
     :param x: (m,n)矩阵，决策变量的值
     :param y: (m,1)矩阵，输出的值
     :param reg: 选择正则化方式（L1、L2）
     :param lamda: 正则化参数
+    :param alpha: 训练的学习率
+    :param epochs: 迭代次数
+
     :return: beta_hat为参数估计值矩阵，y_hat为y的估计值矩阵，
              residual为残差矩阵，p_value为t检验的p值
     """
     # 预处理
-    x = np.insert(x, 0, 1, axis=1)  # 加上全1列作为x0（截距项）
     m, n = x.shape  # 样本个数m，变量个数n
+    x = np.insert(x, 0, 1, axis=1)  # 加上全1列作为x0（截距项）
 
-    if reg == 'L1':
-        # # L1正则化
-        # beta_hat = np.random.uniform(-1, 1, [n, 1])  # 初始化权重向量
-        # 解析法先求出一个解
-        L = np.dot(x.T, x)      # 系数矩阵L
-        C = np.linalg.inv(L)    # 相关矩阵C
-        S = np.dot(x.T, y)      # 常数项矩阵S
-        beta_hat = np.dot(C, S)      # 参数估计值矩阵β_hat
-
-        for k in range(n):
-            temp = y - np.dot(x, beta_hat) + np.multiply(x[:, k], beta_hat[k]).reshape(-1, 1)
-            pk = -2 * np.sum(x[:, k] * temp)
-            mk = 2 * np.sum(x[:, k]**2)
-
-            if k == 0:
-                # theta0不加正则化
-                beta_hat[0] = -pk/mk
-
-            else:
-                if pk > lamda:
-                    beta_hat[k] = -1/mk * (pk - lamda)
-                elif pk < -lamda:
-                    beta_hat[k] = -1/mk * (pk + lamda)
-                else:
-                    beta_hat[k] = 0
-
-        y_hat = np.dot(x, beta_hat)  # y的估计值y_hat
-        residual = y - y_hat  # 残差residual
-
-        resi_plot(m, residual)  # 残差图
-        resi_sum(residual)  # 残差平方和
-
-        return beta_hat, y_hat
-
-    elif reg == 'L2':
+    if reg == 'None' or reg == 'Ridge':
         # L2正则化
         # 参数估计（最小二乘法）
         Id = np.identity(n+1)              # 生成单位阵
@@ -96,64 +75,63 @@ def LR(x, y, reg='None', lamda=0):
         Tn = beta_hat / np.sqrt(sigma_square * gamma)        # t检验统计量
         p_value = (1 - stats.t.cdf(np.abs(Tn), m-n-1)) / 2   # t检验的p—value
 
-        resi_plot(m, residual)  # 残差图
-        resi_sum(residual)  # 残差平方和
+    elif reg == 'LASSO':
+        theta = np.random.uniform(-1, 1, [n+1, 1])  # 参数初始化
+        ze = np.ones([n+1, 1])  # 记录哪些参数被剔除掉（最终取值为零的参数）
+        delta = np.zeros([n+1, 1])  # 梯度初始化
+        cost_history = {'epoch': [], 'cost': []}  # 字典记录误差变化
 
-        return beta_hat, y_hat, p_value
+        # 每次迭代依次更新所有维度
+        for epoch in range(epochs):
+
+            # 每次只更新一个维度（坐标下降法的精髓之处，克服了“不可导”的问题）
+            for k in range(n+1):
+
+                # # 判断该维度的参数是否还需要训练
+                # if ze[k, :] == 0:
+                #     break
+
+                # 假设函数h(θ)
+                h = np.matmul(x, theta)
+                # 均方误差损失 + L1正则化
+                J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n], 1)
+
+                # 坐标下降法（梯度下降法不再适用！！！）
+                if k == 0:
+                    delta[0, :] = 1/m * np.matmul(x.T[0, :], h-y)  # theta0不加正则化
+
+                else:
+                    delta[k, :] = 1/m * np.matmul(x.T[k, :], h-y) + lamda * np.sign(theta[k, :])
+
+                # 参数更新
+                theta[k, :] = theta[k, :] - alpha * delta[k, :]
+
+                # ***见调试记录1
+                # # 当变化程度很小时，将参数设置为0（即从模型中剔除掉）
+                # temp = y - np.dot(x, theta) + np.multiply(x[:, k], theta[k]).reshape(-1, 1)
+                # pk = -2 * np.sum(x[:, k] * temp)
+                # if lamda >= pk >= -lamda:
+                #     ze[k, :] = 0
+
+            # 记录误差cost
+            cost_history['epoch'].append(epoch)
+            cost_history['cost'].append(J)
+
+        plt.plot(cost_history['epoch'], cost_history['cost'])
+        plt.show()
+
+        beta_hat = theta  # 参数估计值
+        y_hat = np.matmul(x, beta_hat).reshape(-1, 1)  # y的估计值
+        residual = y_hat - y  # 残差
+        p_value = []
 
     else:
-        print('Error!')
+        print('Error !')
 
-# 多元线性回归：L1正则化
-"""
-改为训练法：训练无、l1、l2正则化三种
-"""
-def LR_L1(x, y, epochs, alpha, lamda):
-    x = np.insert(x, 0, 1, axis=1)  # 加上全1列作为x0（截距项）
-    m = x.shape[0]  # 样本数
-    n = x.shape[1]  # 特征数
-    theta = np.random.uniform(-1, 1, n)  # 参数初始化
-    cost_history = {'epoch': [], 'cost': []}  # 字典记录误差变化
-    # 训练
-    for epoch in range(epochs):
-        # 假设函数h(θ)
-        h = np.matmul(x, theta)
-        # 均方误差损失 + L1正则化
-        J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n], 1)
-        # 坐标下降法！！！（梯度下降法不再适用！）
-        for k in range(n):
-            a = np.dot(x, theta)
-            b = np.multiply(x[:, k], theta[k]).reshape(-1, 1)
-            c = y - a + b
-            pk = -2 * np.sum(x[:, k] * c)
-            mk = 2 * np.sum(x[:, k]**2)
+    resi_plot(m, residual, reg+'回归')  # 残差图
+    resi_sum(residual, reg+'回归')  # 残差平方和
 
-            if k == 0:
-                theta[0] = -pk/mk  # theta0不加正则化
-
-            else:
-                if pk > lamda:
-                    theta[k] = -1/mk * (pk - lamda)
-                elif pk < lamda:
-                    theta[k] = -1/mk * (pk + lamda)
-                else:
-                    theta[k] = 0
-
-        # 记录误差cost
-        cost_history['epoch'].append(epoch)
-        cost_history['cost'].append(J)
-
-    plt.plot(cost_history['epoch'], cost_history['cost'])
-    plt.show()
-
-    beta_hat = theta  # 参数估计值
-    y_hat = np.matmul(x, beta_hat).reshape(-1, 1)  # y的估计值
-    residual = y_hat - y  # 残差
-
-    resi_plot(m, residual)  # 残差图
-    resi_sum(residual)  # 残差平方和
-
-    return theta, y_hat
+    return beta_hat, y_hat, p_value
 
 # bp神经网络
 def bp(x, y, epochs, alpha, lamda):
@@ -199,8 +177,8 @@ def bp(x, y, epochs, alpha, lamda):
     y_hat = network_out  # y的估计值
     residual = output_delta  # 残差
 
-    resi_plot(x.shape[0], residual)  # 残差图
-    resi_sum(residual)  # 残差平方和
+    resi_plot(x.shape[0], residual, reg='BP神经网络')  # 残差图
+    resi_sum(residual, reg='BP神经网络')  # 残差平方和
 
     return y_hat, w1, b1
 
