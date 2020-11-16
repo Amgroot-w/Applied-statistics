@@ -30,71 +30,114 @@ def resi_sum(resi):
     res = sum(resi**2)
     print('残差平方和：%.4f' % res)
 
-# 多元线性回归：无正则化 + L2正则化
-def LR(x, y, lamda=0):
+# 多元线性回归
+def LR(x, y, reg='None', lamda=0):
     """
     :param x: (m,n)矩阵，决策变量的值
     :param y: (m,1)矩阵，输出的值
+    :param reg: 选择正则化方式（L1、L2）
     :param lamda: 正则化参数
     :return: beta_hat为参数估计值矩阵，y_hat为y的估计值矩阵，
              residual为残差矩阵，p_value为t检验的p值
     """
     # 预处理
-    m, n = x.shape  # 样本个数n，变量个数p
-    x = np.column_stack((np.ones([m, 1]), x))  # 加上全1列作为x0（截距项）
+    x = np.insert(x, 0, 1, axis=1)  # 加上全1列作为x0（截距项）
+    m, n = x.shape  # 样本个数m，变量个数n
 
-    # 参数估计（最小二乘法）
-    Id = np.identity(n+1)              # 生成单位阵
-    Id[0, 0] = 0                       # theta0不参与正则化
-    L = np.dot(x.T, x) + 1/2*lamda*Id  # 系数矩阵L
-    C = np.linalg.inv(L)               # 相关矩阵C
-    S = np.dot(x.T, y)                 # 常数项矩阵S
-    beta_hat = np.dot(C, S)            # 参数估计值矩阵β_hat
-    y_hat = np.dot(x, beta_hat)        # y的估计值y_hat
-    residual = y - y_hat               # 残差residual
+    if reg == 'L1':
+        # # L1正则化
+        # beta_hat = np.random.uniform(-1, 1, [n, 1])  # 初始化权重向量
+        # 解析法先求出一个解
+        L = np.dot(x.T, x)      # 系数矩阵L
+        C = np.linalg.inv(L)    # 相关矩阵C
+        S = np.dot(x.T, y)      # 常数项矩阵S
+        beta_hat = np.dot(C, S)      # 参数估计值矩阵β_hat
 
-    # 假设检验（t检验）
-    sigma_square = np.sum(residual**2) / (m-n-1)         # 求σ_hat^2的无偏估计值
-    gamma = np.diagonal(C).reshape(-1, 1)                # 取出相关矩阵C的对角线元素赋值给gamma
-    Tn = beta_hat / np.sqrt(sigma_square * gamma)        # t检验统计量
-    p_value = (1 - stats.t.cdf(np.abs(Tn), m-n-1)) / 2   # t检验的p—value
+        for k in range(n):
+            temp = y - np.dot(x, beta_hat) + np.multiply(x[:, k], beta_hat[k]).reshape(-1, 1)
+            pk = -2 * np.sum(x[:, k] * temp)
+            mk = 2 * np.sum(x[:, k]**2)
 
-    resi_plot(m, residual)  # 残差图
-    resi_sum(residual)  # 残差平方和
+            if k == 0:
+                # theta0不加正则化
+                beta_hat[0] = -pk/mk
 
-    return beta_hat, y_hat, p_value
+            else:
+                if pk > lamda:
+                    beta_hat[k] = -1/mk * (pk - lamda)
+                elif pk < -lamda:
+                    beta_hat[k] = -1/mk * (pk + lamda)
+                else:
+                    beta_hat[k] = 0
+
+        y_hat = np.dot(x, beta_hat)  # y的估计值y_hat
+        residual = y - y_hat  # 残差residual
+
+        resi_plot(m, residual)  # 残差图
+        resi_sum(residual)  # 残差平方和
+
+        return beta_hat, y_hat
+
+    elif reg == 'L2':
+        # L2正则化
+        # 参数估计（最小二乘法）
+        Id = np.identity(n+1)              # 生成单位阵
+        Id[0, 0] = 0                       # theta0不参与正则化
+        L = np.dot(x.T, x) + 1/2*lamda*Id  # 系数矩阵L
+        C = np.linalg.inv(L)               # 相关矩阵C
+        S = np.dot(x.T, y)                 # 常数项矩阵S
+        beta_hat = np.dot(C, S)            # 参数估计值矩阵β_hat
+        y_hat = np.dot(x, beta_hat)        # y的估计值y_hat
+        residual = y - y_hat               # 残差residual
+
+        # 假设检验（t检验）
+        sigma_square = np.sum(residual**2) / (m-n-1)         # 求σ_hat^2的无偏估计值
+        gamma = np.diagonal(C).reshape(-1, 1)                # 取出相关矩阵C的对角线元素赋值给gamma
+        Tn = beta_hat / np.sqrt(sigma_square * gamma)        # t检验统计量
+        p_value = (1 - stats.t.cdf(np.abs(Tn), m-n-1)) / 2   # t检验的p—value
+
+        resi_plot(m, residual)  # 残差图
+        resi_sum(residual)  # 残差平方和
+
+        return beta_hat, y_hat, p_value
+
+    else:
+        print('Error!')
 
 # 多元线性回归：L1正则化
+"""
+改为训练法：训练无、l1、l2正则化三种
+"""
 def LR_L1(x, y, epochs, alpha, lamda):
-    x = np.column_stack((np.ones([x.shape[0], 1]), x))  # 加上全1列作为x0（截距项）
+    x = np.insert(x, 0, 1, axis=1)  # 加上全1列作为x0（截距项）
     m = x.shape[0]  # 样本数
     n = x.shape[1]  # 特征数
-    theta = np.random.uniform(-1, 1, [n, 1])  # 参数初始化
+    theta = np.random.uniform(-1, 1, n)  # 参数初始化
     cost_history = {'epoch': [], 'cost': []}  # 字典记录误差变化
     # 训练
     for epoch in range(epochs):
         # 假设函数h(θ)
         h = np.matmul(x, theta)
         # 均方误差损失 + L1正则化
-        J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n, :], 1)
+        J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n], 1)
         # 坐标下降法！！！（梯度下降法不再适用！）
         for k in range(n):
             a = np.dot(x, theta)
-            b = np.multiply(x[:, k], theta[k, :]).reshape(-1, 1)
+            b = np.multiply(x[:, k], theta[k]).reshape(-1, 1)
             c = y - a + b
             pk = -2 * np.sum(x[:, k] * c)
             mk = 2 * np.sum(x[:, k]**2)
 
             if k == 0:
-                theta[0, :] = -pk/mk  # theta0不加正则化
+                theta[0] = -pk/mk  # theta0不加正则化
 
             else:
                 if pk > lamda:
-                    theta[k, :] = -1/mk * (pk - lamda)
+                    theta[k] = -1/mk * (pk - lamda)
                 elif pk < lamda:
-                    theta[k, :] = -1/mk * (pk + lamda)
+                    theta[k] = -1/mk * (pk + lamda)
                 else:
-                    theta[k, :] = 0
+                    theta[k] = 0
 
         # 记录误差cost
         cost_history['epoch'].append(epoch)
@@ -104,7 +147,7 @@ def LR_L1(x, y, epochs, alpha, lamda):
     plt.show()
 
     beta_hat = theta  # 参数估计值
-    y_hat = np.matmul(x, beta_hat)  # y的估计值
+    y_hat = np.matmul(x, beta_hat).reshape(-1, 1)  # y的估计值
     residual = y_hat - y  # 残差
 
     resi_plot(m, residual)  # 残差图
