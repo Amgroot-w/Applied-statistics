@@ -69,23 +69,39 @@ def LR_L1(x, y, epochs, alpha, lamda):
     x = np.column_stack((np.ones([x.shape[0], 1]), x))  # 加上全1列作为x0（截距项）
     m = x.shape[0]  # 样本数
     n = x.shape[1]  # 特征数
-    theta = np.random.uniform(-1, 1, [x.shape[1], 1])  # 参数初始化
-    delta = np.zeros([n, 1])  # 梯度初始化
+    theta = np.random.uniform(-1, 1, [n, 1])  # 参数初始化
     cost_history = {'epoch': [], 'cost': []}  # 字典记录误差变化
     # 训练
     for epoch in range(epochs):
         # 假设函数h(θ)
         h = np.matmul(x, theta)
-        # 均方误差损失 + L1正则化项
+        # 均方误差损失 + L1正则化
         J = cap.mse(h, y) + lamda*np.linalg.norm(theta[1:n, :], 1)
         # 坐标下降法！！！（梯度下降法不再适用！）
-        delta[0, :] = 1/m * np.matmul(x.T[0, :], h-y)  # theta0不加正则化
-        delta[1:n, :] = 1/m * np.matmul(x.T[1:n, :], h-y) + lamda*np.sign(theta[1:n, :])
-        # 参数更新
-        theta = theta - alpha * delta
+        for k in range(n):
+            a = np.dot(x, theta)
+            b = np.multiply(x[:, k], theta[k, :]).reshape(-1, 1)
+            c = y - a + b
+            pk = -2 * np.sum(x[:, k] * c)
+            mk = 2 * np.sum(x[:, k]**2)
+
+            if k == 0:
+                theta[0, :] = -pk/mk  # theta0不加正则化
+
+            else:
+                if pk > lamda:
+                    theta[k, :] = -1/mk * (pk - lamda)
+                elif pk < lamda:
+                    theta[k, :] = -1/mk * (pk + lamda)
+                else:
+                    theta[k, :] = 0
+
         # 记录误差cost
         cost_history['epoch'].append(epoch)
         cost_history['cost'].append(J)
+
+    plt.plot(cost_history['epoch'], cost_history['cost'])
+    plt.show()
 
     beta_hat = theta  # 参数估计值
     y_hat = np.matmul(x, beta_hat)  # y的估计值
