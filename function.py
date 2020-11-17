@@ -1,6 +1,28 @@
 """
 function.py
 
+学号：2000900    姓名：张敬川    2020.11.17
+
+---------------------- 定义了5种拟合方法 ----------------------
+            1. 线性拟合，不加正则化；
+            2. 线性拟合，加L2正则化（Ridge回归）；
+            3. 线性拟合，加L1正则化（LASSO回归）；
+            4. 线性拟合，调用sklearn库实现LASSO算法；
+            5. 非线性拟合，三层BP神经网络。
+
+------------------------ 实验结果分析 ------------------------
+1. 加正则化会使RSS增大，这说明正则化起到了作用，避免了过拟合；
+2. 加L2正则化时，系数虽然小但是取不到0；加L2正则化时，系数能够被训练为0，
+   表明L1正则化具有稀疏性，能够做“特征选择”；
+3. 调用sklearn库函数实现LASSO，最终结果和自己手写的代码的结果高度一致，
+   表明自己的代码编写无误；
+4. BP神经网络的拟合效果最好，因为它是非线性拟合模型，考虑到了原始数据之间
+   的非线性因素。但是其缺点是无法写出模型的解析表达式（或表达式形式过于复
+   杂）。我也考虑过简单的非线性模型，如logistic回归，但该方法适用于分类
+   问题，不适用于回归问题；此外，logistic的输出层激活函数为sigmoid函数，
+   其输出范围为(0,1)，与数据样本的y值范围不一致，因此只能再加一层线性输出，
+   即构成了三层的BP神经网络模型。
+
 """
 import numpy as np
 from scipy import stats
@@ -17,7 +39,8 @@ def resi_plot(resi, reg):
     if reg == 'None回归':
         reg = '不加正则化'
     plt.figure()
-    plt.scatter(range(resi.shape[0]), resi, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
+    plt.scatter(range(resi.shape[0]), resi, c='orange', marker='o', s=120,
+                alpha=0.7, linewidths=1, edgecolors='k')
     plt.plot(range(resi.shape[0]), resi, '--k', alpha=0.6)
     plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
     plt.xlabel('样本')
@@ -71,9 +94,9 @@ def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
 
     elif reg == 'LASSO':
         theta = np.random.uniform(-1, 1, [n+1, 1])  # 参数初始化
-        ze = np.ones([n+1, 1])  # 记录哪些参数被剔除掉（最终取值为零的参数）
-        delta = np.zeros([n+1, 1])  # 梯度初始化
-        cost_history = {'epoch': [], 'cost': []}  # 字典记录误差变化
+        ze = np.ones([n+1, 1])                      # 记录哪些参数被剔除掉（最终取值为零的参数）
+        delta = np.zeros([n+1, 1])                  # 梯度初始化
+        cost_history = {'epoch': [], 'cost': []}    # 字典记录误差变化
 
         # 每次迭代依次更新所有维度
         for epoch in range(epochs):
@@ -123,7 +146,7 @@ def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
         print('Error !')
 
     resi_plot(residual, reg+'回归')  # 残差图
-    resi_sum(residual, reg+'回归')  # 残差平方和
+    resi_sum(residual, reg+'回归')   # 残差平方和
 
     return beta_hat, y_hat, p_value
 
@@ -144,7 +167,7 @@ def LR_sklearn(x, y, alpha=0.01):
     residual = y - y_hat  # 残差
 
     resi_plot(residual, 'LASSO回归(sklearn库)')  # 残差图
-    resi_sum(residual, 'LASSO回归(sklearn库)')  # 残差平方和
+    resi_sum(residual, 'LASSO回归(sklearn库)')   # 残差平方和
 
     return beta_hat, y_hat
 
@@ -153,8 +176,8 @@ def bp(x, y, epochs, alpha, lamda):
     # 超参数
     train_num = x.shape[0]  # 样本数
     input_num = x.shape[1]  # 输入节点数
-    hidden_num = 8  # 隐层节点数
-    output_num = 1  # 输出节点数
+    hidden_num = 8          # 隐层节点数
+    output_num = 1          # 输出节点数
 
     # 初始化权重
     w1 = np.random.uniform(-0.5, 0.5, [input_num, hidden_num])
@@ -189,12 +212,12 @@ def bp(x, y, epochs, alpha, lamda):
         b2 = b2 - alpha*db2
         b1 = b1 - alpha*db1
 
-    beta_hat = list((w1, b1, w2, b2))
-    y_hat = network_out  # y的估计值
-    residual = output_delta  # 残差
+    beta_hat = list((w1, b1, w2, b2))  # 网络参数矩阵
+    y_hat = network_out                # y的估计值
+    residual = output_delta            # 残差
 
     resi_plot(residual, reg='BP神经网络')  # 残差图
-    resi_sum(residual, reg='BP神经网络')  # 残差平方和
+    resi_sum(residual, reg='BP神经网络')   # 残差平方和
 
     return beta_hat, y_hat
 

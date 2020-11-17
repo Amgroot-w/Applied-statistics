@@ -3,9 +3,10 @@
 (1) 使用附件“dataset.csv”中的数据，建立X1-X11，与Y之间的模型。
 (2) 可以使用正则化方法或者变量选择的方法对模型中的变量进行筛选，结果列出每个模型的表达形式及残差平方和。
 
-学号： 2000900
-姓名： 张敬川
-2020.11.12
+学号：2000900    姓名：张敬川    2020.11.17
+
+运行要求：
+项目文件夹下须有function.py和cap.py两个文件，以及数据dataset.csv
 
 调试记录：
 1. LASSO回归，参数怎么才会变为0? 按照坐标下降法，参数不太可能会自动训练为0啊?
@@ -27,8 +28,8 @@ plt.rcParams['axes.unicode_minus'] = False
 # %% 导入数据
 data = pd.read_csv('dataset.csv')
 # 选择决策变量
-# data_x = data.iloc[:, 1:12].values
-data_x = data[['X1', 'X2', 'X3', 'X6', 'X11']].values
+# data_x = data.iloc[:, 1:12].values  # 选择全部决策变量
+data_x = data[['X1', 'X2', 'X3', 'X6', 'X11']].values  # 剔除无关的变量
 # 选择因变量
 data_y = data.iloc[:, 12].values.reshape(-1, 1)
 
@@ -42,7 +43,7 @@ beta_h3, y_h3, _ = LR(data_x, data_y, reg='LASSO', lamda=0.1, alpha=0.1, epochs=
 
 beta_h4, y_h4 = LR_sklearn(data_x, data_y, alpha=0.1)  # sklearn库实现LASSO回归
 
-beta_h_bp, y_h_bp = bp(data_x, data_y, epochs=5000, alpha=0.5, lamda=0.01)  # bp神经网络
+beta_h_bp, y_h_bp = bp(data_x, data_y, epochs=5000, alpha=0.5, lamda=0.01)  # BP神经网络
 
 
 
