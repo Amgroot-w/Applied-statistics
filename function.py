@@ -1,16 +1,10 @@
 """
 function.py
 
-调试记录：
-1. LASSO回归，参数怎么才会变为0? 按照坐标下降法，参数不太可能会自动训练为0啊?
-”在变量的变化程度很小时“，将该维度参数设为0，我用pk作为判断依据，当pk位于（-λ，λ）中时，
-表示变化程度“很小”，那么此时将参数设为0。实际调试发现，pk这个数太大了，都是几千几百，不
-可能小到设置的阈值范围中，所以该方法不可行！
-
 """
 import numpy as np
-import pandas as pd
 from scipy import stats
+from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
 import cap
 
@@ -19,12 +13,12 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 残差图
-def resi_plot(m, resi, reg):
+def resi_plot(resi, reg):
     if reg == 'None回归':
         reg = '不加正则化'
     plt.figure()
-    plt.scatter(range(m), resi, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
-    plt.plot(range(m), resi, '--k', alpha=0.6)
+    plt.scatter(range(resi.shape[0]), resi, c='orange', marker='o', s=120, alpha=0.7, linewidths=1, edgecolors='k')
+    plt.plot(range(resi.shape[0]), resi, '--k', alpha=0.6)
     plt.plot([-5, 105], [0, 0], '--k', alpha=0.7)
     plt.xlabel('样本')
     plt.ylabel('残差值')
@@ -117,8 +111,8 @@ def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
             cost_history['epoch'].append(epoch)
             cost_history['cost'].append(J)
 
-        plt.plot(cost_history['epoch'], cost_history['cost'])
-        plt.show()
+        # plt.plot(cost_history['epoch'], cost_history['cost'])
+        # plt.show()
 
         beta_hat = theta  # 参数估计值
         y_hat = np.matmul(x, beta_hat).reshape(-1, 1)  # y的估计值
@@ -128,10 +122,31 @@ def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
     else:
         print('Error !')
 
-    resi_plot(m, residual, reg+'回归')  # 残差图
+    resi_plot(residual, reg+'回归')  # 残差图
     resi_sum(residual, reg+'回归')  # 残差平方和
 
     return beta_hat, y_hat, p_value
+
+
+# 调用sklearn库函数实现LASSO
+def LR_sklearn(x, y, alpha=0.01):
+    """
+    :param x: (m,n)矩阵，决策变量的值
+    :param y: (m,1)矩阵，输出的值
+    :param alpha: 学习率
+    :return:
+    """
+
+    LR_model = Lasso(alpha=alpha)  # 创建Lasso模型
+    res = LR_model.fit(x, y)  # 模型拟合
+    beta_hat = np.insert(res.coef_, 0, res.intercept_).reshape(-1, 1)  # 提取训练完成的参数值
+    y_hat = LR_model.predict(x).reshape(-1, 1)  # 预测y值
+    residual = y - y_hat  # 残差
+
+    resi_plot(residual, 'LASSO回归(sklearn库)')  # 残差图
+    resi_sum(residual, 'LASSO回归(sklearn库)')  # 残差平方和
+
+    return beta_hat, y_hat
 
 # bp神经网络
 def bp(x, y, epochs, alpha, lamda):
@@ -174,13 +189,14 @@ def bp(x, y, epochs, alpha, lamda):
         b2 = b2 - alpha*db2
         b1 = b1 - alpha*db1
 
+    beta_hat = list((w1, b1, w2, b2))
     y_hat = network_out  # y的估计值
     residual = output_delta  # 残差
 
-    resi_plot(x.shape[0], residual, reg='BP神经网络')  # 残差图
+    resi_plot(residual, reg='BP神经网络')  # 残差图
     resi_sum(residual, reg='BP神经网络')  # 残差平方和
 
-    return y_hat, w1, b1
+    return beta_hat, y_hat
 
 
 
