@@ -37,7 +37,7 @@ plt.rcParams['axes.unicode_minus'] = False
 # 残差图
 def resi_plot(resi, reg):
     if reg == 'None回归':
-        reg = '不加正则化'
+        reg = '多元线性回归（无正则化）'
     plt.figure()
     plt.scatter(range(resi.shape[0]), resi, c='orange', marker='o', s=120,
                 alpha=0.7, linewidths=1, edgecolors='k')
@@ -50,12 +50,18 @@ def resi_plot(resi, reg):
     plt.ylim(-3.5, 3.5)
     plt.show()
 
-# 残差平方和
-def resi_sum(resi, reg):
-    res = sum(resi**2)
+
+# 计算残差平方和、R2
+def compute_R2(y, y_hat, y_mean, reg):
+    ESS = np.sum((y_hat - y_mean)**2)  # 回归平方和
+    RSS = np.sum((y_hat - y)**2)  # 残差平方和
+    TSS = RSS + ESS  # 总离差平方和
+    R2 = ESS / TSS  # 决定系数
+
     if reg == 'None回归':
-        reg = '不加正则化'
-    print('%s，残差平方和(RSS)：%.4f' % (reg, res))
+        reg = '多元线性回归（无正则化）'
+
+    print('%s，残差平方和(RSS)：%.4f，决定系数(R-square)：%.4f' % (reg, RSS, R2))
 
 # 多元线性回归
 def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
@@ -146,7 +152,7 @@ def LR(x, y, reg='None', lamda=0, alpha=0.01, epochs=2000):
         print('Error !')
 
     resi_plot(residual, reg+'回归')  # 残差图
-    resi_sum(residual, reg+'回归')   # 残差平方和
+    compute_R2(y, y_hat, np.mean(y), reg+'回归')
 
     return beta_hat, y_hat, p_value
 
@@ -166,8 +172,8 @@ def LR_sklearn(x, y, alpha=0.01):
     y_hat = LR_model.predict(x).reshape(-1, 1)  # 预测y值
     residual = y - y_hat  # 残差
 
-    resi_plot(residual, 'LASSO回归(sklearn库)')  # 残差图
-    resi_sum(residual, 'LASSO回归(sklearn库)')   # 残差平方和
+    resi_plot(residual, 'LASSO回归(sklearn)')  # 残差图
+    compute_R2(y, y_hat, np.mean(y), reg='LASSO回归(sklearn)')
 
     return beta_hat, y_hat
 
@@ -176,7 +182,7 @@ def bp(x, y, epochs, alpha, lamda):
     # 超参数
     train_num = x.shape[0]  # 样本数
     input_num = x.shape[1]  # 输入节点数
-    hidden_num = 8          # 隐层节点数
+    hidden_num = 10          # 隐层节点数
     output_num = 1          # 输出节点数
 
     # 初始化权重
@@ -217,7 +223,7 @@ def bp(x, y, epochs, alpha, lamda):
     residual = output_delta            # 残差
 
     resi_plot(residual, reg='BP神经网络')  # 残差图
-    resi_sum(residual, reg='BP神经网络')   # 残差平方和
+    compute_R2(y, y_hat, np.mean(y), reg='BP神经网络')
 
     return beta_hat, y_hat
 

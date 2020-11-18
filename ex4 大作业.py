@@ -28,8 +28,8 @@ plt.rcParams['axes.unicode_minus'] = False
 # %% 导入数据
 data = pd.read_csv('dataset.csv')
 # 选择决策变量
-# data_x = data.iloc[:, 1:12].values  # 选择全部决策变量
-data_x = data[['X1', 'X2', 'X3', 'X6', 'X11']].values  # 剔除无关的变量
+data_x = data.iloc[:, 1:12].values  # 选择全部决策变量
+# data_x = data[['X1', 'X2', 'X3', 'X6', 'X11']].values  # 剔除无关的变量
 # 选择因变量
 data_y = data.iloc[:, 12].values.reshape(-1, 1)
 
